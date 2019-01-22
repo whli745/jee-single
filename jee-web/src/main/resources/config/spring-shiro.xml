@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+    <!-- 启用shrio授权注解拦截方式 -->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <!-- 装配 securityManager -->
+        <property name="securityManager" ref="securityManager"/>
+        <!-- 配置登陆页面 -->
+        <property name="loginUrl" value="/login"/>
+        <!-- 登陆成功后的一面 -->
+        <property name="successUrl" value="/index"/>
+        <property name="unauthorizedUrl" value="/login"/>
+        <!-- 具体配置需要拦截哪些 URL, 以及访问对应的 URL 时使用 Shiro 的什么 Filter 进行拦截.  -->
+        <property name="filterChainDefinitions">
+            <value>
+                /login=anon
+                /logout = logout
+                /static/**=anon
+                /**/export*=anon
+                /**/import* = anon
+                /** = authc
+            </value>
+        </property>
+    </bean>
+
+    <!-- 配置进行授权和认证的 Realm -->
+    <bean id="myShiroRealm" class="com.whli.jee.system.realm.MyShiroRealm">
+        <property name="cacheManager" ref="cacheManager"/>
+    </bean>
+
+    <!-- 配置 Shiro 的 SecurityManager -->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <property name="sessionManager" ref="sessionManager"/>
+        <property name="cacheManager" ref="cacheManager"/>
+        <property name="realm" ref="myShiroRealm"/>
+        <property name="sessionMode" value="native"/>
+    </bean>
+
+    <!-- sessionIdCookie：maxAge=-1表示浏览器关闭时失效此Cookie -->
+    <bean id="sessionIdCookie" class="org.apache.shiro.web.servlet.SimpleCookie">
+        <constructor-arg value="rememberMe"/>
+        <property name="httpOnly" value="true"/>
+        <property name="maxAge" value="-1"/>
+    </bean>
+
+    <!-- 定义sessionID 获取类 -->
+    <bean id="sessionIdGenerator" class="org.apache.shiro.session.mgt.eis.JavaUuidSessionIdGenerator"/>
+
+    <!-- 定义redis manager -->
+    <bean id="redisManager" class="org.crazycake.shiro.RedisManager">
+        <property name="host" value="#{redis['redis.host']}:#{redis['redis.port']}"/>
+        <property name="timeout" value="#{redis['redis.timeout']}"/>
+    </bean>
+
+
+    <!-- 配置sessionDao -->
+    <bean id="redisSessionDAO" class="org.crazycake.shiro.RedisSessionDAO">
+        <property name="sessionIdGenerator" ref="sessionIdGenerator"/>
+        <property name="redisManager" ref="redisManager"/>
+        <property name="expire" value="#{redis['redis.defaultExpire']}"/>
+    </bean>
+
+    <!-- sessionManager -->
+    <bean id="sessionManager" class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager">
+        <property name="sessionDAO" ref="redisSessionDAO" />
+    </bean>
+
+    <!-- 配置缓存管理器 -->
+    <bean id="cacheManager" class="org.crazycake.shiro.RedisCacheManager">
+        <property name="redisManager" ref="redisManager"/>
+    </bean>
+
+    <!-- 配置 Bean 后置处理器: 会自动的调用和 Spring 整合后各个组件的生命周期方法. -->
+    <bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+</beans>
